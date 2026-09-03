@@ -13,6 +13,26 @@ This README is in English, followed by a Japanese translation.
 
 ## English
 
+### What you can do
+
+- **Automatic analysis** — scans your `.zwo` library and computes TSS, IF,
+  zone distribution, primary training type, and structure (steady/interval/
+  mixed) for every workout, no manual tagging needed.
+- **Fine-grained filtering** — narrow thousands of workouts down by
+  duration, TSS, IF, primary type, structure, sub-types (cadence drills,
+  FreeRide, ramps, sweet spot, etc.), and free-text tags, to find what fits
+  in seconds.
+- **Visual, at-a-glance workouts** — every workout gets a graphical power
+  profile and a zone-distribution chart, so you can judge its shape without
+  opening it in Zwift first.
+- **One-touch push to Zwift** — schedule a workout onto your Zwift calendar
+  via intervals.icu directly from the search results, and cancel it just as
+  easily.
+- **Favorites and duplicate detection** — star workouts for quick access
+  later, and let ZWS automatically collapse structurally-identical
+  duplicates (e.g. the same session reused across weeks of a training plan)
+  so they don't clutter your results.
+
 ### Requirements
 
 - Python 3.11+
@@ -96,6 +116,14 @@ MIT — see `LICENSE`.
 ---
 
 ## 日本語
+
+### ZWSでできること
+
+- **自動解析** — `.zwo`ライブラリをスキャンし、全ワークアウトのTSS・IF・ゾーン分布・主タイプ・構造（持続/インターバル/複合）を自動算出。手動タグ付けは不要です。
+- **きめ細かいフィルタリング** — 時間・TSS・IF・主タイプ・構造・副タイプ（ケイデンス指定、FreeRide、ランプ、スイートスポット等）、フリーテキストタグを組み合わせて、数千件の中から目的のワークアウトを数秒で絞り込めます。
+- **視認性の高いグラフィカル表示** — 全ワークアウトにパワープロファイル図とゾーン分布グラフが表示されるため、Zwiftで開く前に内容を把握できます。
+- **ワンタッチでZwiftへプッシュ** — 検索結果から直接、intervals.icu経由でZwiftカレンダーへ登録。解除も同様に簡単です。
+- **お気に入り登録・重複検出** — 気に入ったワークアウトにスターを付けて後から素早くアクセス。構造的に同一のワークアウト（トレーニングプラン内で複数週に再利用されているセッション等）は自動的にまとめて表示され、結果が重複で埋まりません。
 
 ### 動作要件
 
