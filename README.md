@@ -35,7 +35,7 @@ This README is in English, followed by a Japanese translation.
 
 ### Requirements
 
-- Python 3.11+
+- Python 3.9+
 - An [intervals.icu](https://intervals.icu) account and API key, if you want
   to schedule workouts onto your calendar (optional — search/browse works
   without it)
@@ -159,7 +159,7 @@ MIT — see `LICENSE`.
 
 ### 動作要件
 
-- Python 3.11以上
+- Python 3.9以上
 - [intervals.icu](https://intervals.icu)のアカウントとAPIキー（Zwiftカレンダーへの登録機能を使う場合のみ必要。検索・閲覧のみなら不要）
 
 ### セットアップ
