@@ -64,6 +64,26 @@ Once you have your own `.zwo` files:
    currently pointed at) — the "exclude" setting is what actually keeps them
    out of your results.
 
+### Getting workout files
+
+This repo doesn't bundle real Zwift workout files — redistributing files
+sourced from the internet, or extracted from Zwift's own game assets, sits
+in a copyright grey area, so only the synthetic `sample_workouts/` are
+included. You'll need to obtain or create your own `.zwo` files. A couple of
+starting points:
+
+- **Zwift Forums archive**: the [October 2023 Workout Refresh thread](https://forums.zwift.com/t/workout-refresh-october-2023/609799)
+  links to a downloadable archive containing 1,000+ `.zwo` workouts.
+- **Zwift's own installation**: the Zwift client ships
+  `assets/Workouts/workouts.wad`, an archive holding roughly 2,500 workouts
+  as `.xml`/`.zwo` files. It uses a proprietary compression format, so it
+  needs decoding first — `tools/wad_to_zwo.py` in this repo handles both
+  steps (extracting the wad, then converting the results to `.zwo`); see the
+  script's docstring for usage.
+
+Once you have files, point the `.zwo` directory at wherever you keep them,
+per "Moving to production" above.
+
 ### intervals.icu integration (optional)
 
 In **⚙ Settings**, enter your intervals.icu Athlete ID and API key to enable
@@ -111,6 +131,15 @@ python3 -m venv .venv
 2. 設定画面の「**サンプルワークアウトを検索対象から除外する**」をON。これは`sample`タグの付いたワークアウトを検索結果から隠すだけで削除はしないため、後で再度OFFにすれば見えるようになります。
 
    注意: .zwoディレクトリをサンプルファイルが存在しない場所に切り替えるだけでは、カタログ上のレコードは自動削除されません（スキャナは現在指定中のディレクトリ配下に存在しないファイルのみを削除対象とするため）。実際に検索結果から除外するには、上記の「除外する」設定が必要です。
+
+### ワークアウトファイルの入手方法
+
+本リポジトリには実在のZwiftワークアウトファイルは同梱していません。インターネット上から入手したファイルや、Zwift本体のゲームアセットから抽出したファイルを再配布することは著作権上グレーな面があるため、同梱しているのは合成データである`sample_workouts/`のみです。自分の`.zwo`ファイルは各自で入手または作成してください。入手先の例:
+
+- **Zwiftフォーラムのアーカイブ**: [Workout Refresh (October 2023)スレッド](https://forums.zwift.com/t/workout-refresh-october-2023/609799)から、1,000件を超える`.zwo`ワークアウトを含むアーカイブをダウンロードできます。
+- **Zwift本体のインストールから**: Zwiftクライアントには`assets/Workouts/workouts.wad`が含まれており、約2,500件のワークアウトが`.xml`（`.zwo`）形式で格納されています。独自の圧縮形式のためデコードが必要ですが、本リポジトリの`tools/wad_to_zwo.py`が抽出・変換の両方に対応しています（使い方はスクリプト冒頭のdocstringを参照）。
+
+入手したファイルは、上記「本番運用への移行」の手順に沿って.zwoディレクトリに指定してください。
 
 ### intervals.icu連携（任意）
 
