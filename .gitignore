@@ -3,3 +3,8 @@ data/*.db
 __pycache__/
 *.pyc
 .venv/
+
+# local-only reference docs, not part of the published source
+CLAUDE.md
+webserver.txt
+workout-selector.md
