@@ -4,6 +4,8 @@ Normalizes the various real-world element/attribute spellings found in the
 wild (case variants, Zone-based power instead of numeric %FTP, etc.) into a
 flat list of Step objects that metrics.py can analyze.
 """
+import math
+import os
 from dataclasses import dataclass, field
 from typing import List, Optional, Dict
 # .zwo files can come from third-party sources (Zwift forums, workouts.wad
@@ -14,6 +16,35 @@ from typing import List, Optional, Dict
 # not ParseError, so they're caught separately below.
 import defusedxml.ElementTree as ET
 from defusedxml.common import DefusedXmlException
+
+# defusedxml only guards XML-parser-level attacks (entity expansion etc.) —
+# a well-formed .zwo with an absurd *semantic* value (Repeat="100000000",
+# Duration="999999999999", ...) parses fine and then blows up CPU/RAM
+# building Step objects or the per-second profile in metrics.py. These
+# bound every such value at generous multiples of anything seen in the real
+# ~3,400-workout catalog this app was built against (max Repeat 63, max
+# duration 13.6h, max file 29KB) — see the 2026-09 review for the exact
+# empirical check. Centralized here so they read as one security boundary.
+MAX_FILE_SIZE_BYTES = 10 * 1024 * 1024       # 10 MiB
+MAX_REPEAT = 1000
+MAX_TOTAL_STEPS = 10_000
+MAX_TOTAL_DURATION_SEC = 24 * 3600           # 24h — also the effective
+                                              # per-step ceiling (no separate
+                                              # tighter cap: real "Dynamic
+                                              # Workouts" route files use a
+                                              # single ~13.6h step for the
+                                              # whole ride — see 2026-09
+                                              # regression found against the
+                                              # real catalog. A step can't
+                                              # exceed this without
+                                              # immediately tripping the
+                                              # running total in _add_step,
+                                              # so a separate bound added no
+                                              # protection, only false
+                                              # rejections.
+MAX_NAME_LEN = 1_000
+MAX_DESCRIPTION_LEN = 100_000
+MAX_TAG_LEN = 1_000
 
 # Real files contain case variants of the "official" tag names
 # (e.g. "Freeride", "cooldown", "SolidState" as a typo for "SteadyState").
@@ -107,7 +138,24 @@ def _cadence(attrs: Dict[str, str]):
     return lo, hi
 
 
+def _check_duration(sec: float, what: str) -> float:
+    """Rejects a Duration/OnDuration/OffDuration value outright rather than
+    clamping it — NaN/inf parse successfully via float() and would otherwise
+    reach range()/int(round()) downstream (metrics.py). The upper bound
+    itself is enforced by _add_step's running total against
+    MAX_TOTAL_DURATION_SEC, not here — see that constant's comment."""
+    if not math.isfinite(sec) or sec < 0:
+        raise ZwoParseError("%s out of range: %r" % (what, sec))
+    return sec
+
+
 def parse_zwo(filepath: str) -> WorkoutDoc:
+    try:
+        if os.path.getsize(filepath) > MAX_FILE_SIZE_BYTES:
+            raise ZwoParseError("file too large (>%d bytes)" % MAX_FILE_SIZE_BYTES)
+    except OSError as e:
+        raise ZwoParseError(str(e))
+
     try:
         tree = ET.parse(filepath)
     except (ET.ParseError, DefusedXmlException) as e:
@@ -116,25 +164,31 @@ def parse_zwo(filepath: str) -> WorkoutDoc:
     root = tree.getroot()
     doc = WorkoutDoc(filepath=filepath)
 
-    def text(tag):
+    def text(tag, max_len=None):
         el = root.find(tag)
-        return el.text.strip() if el is not None and el.text else None
+        v = el.text.strip() if el is not None and el.text else None
+        if v and max_len and len(v) > max_len:
+            raise ZwoParseError("<%s> too long (>%d chars)" % (tag, max_len))
+        return v
 
-    doc.name = text("name")
-    doc.author = text("author")
-    doc.description = text("description")
+    doc.name = text("name", MAX_NAME_LEN)
+    doc.author = text("author", MAX_NAME_LEN)
+    doc.description = text("description", MAX_DESCRIPTION_LEN)
     doc.sport_type = (text("sportType") or "bike").lower()
     if doc.sport_type == "ride":
         doc.sport_type = "bike"
-    doc.category = text("category")
-    doc.subcategory = text("subcategory")
-    doc.category_override = text("categoryOverride")
+    doc.category = text("category", MAX_NAME_LEN)
+    doc.subcategory = text("subcategory", MAX_NAME_LEN)
+    doc.category_override = text("categoryOverride", MAX_NAME_LEN)
 
     tags_el = root.find("tags")
     if tags_el is not None:
         doc.embedded_tags = [
             t.attrib["name"] for t in tags_el.findall("tag") if t.attrib.get("name")
         ]
+        for tag in doc.embedded_tags:
+            if len(tag) > MAX_TAG_LEN:
+                raise ZwoParseError("tag too long (>%d chars)" % MAX_TAG_LEN)
 
     workout_el = root.find("workout")
     if workout_el is None:
@@ -142,6 +196,21 @@ def parse_zwo(filepath: str) -> WorkoutDoc:
         return doc
 
     doc.num_blocks = len(list(workout_el))
+
+    # Total step count and total duration are tracked here (not checked once
+    # at the end) so a pathological file is rejected as soon as either
+    # bound is crossed, mid-expansion — not after the resources to build
+    # the full list have already been spent.
+    total_duration = 0.0
+
+    def _add_step(step: Step) -> None:
+        nonlocal total_duration
+        if len(doc.steps) >= MAX_TOTAL_STEPS:
+            raise ZwoParseError("workout has too many steps (>%d)" % MAX_TOTAL_STEPS)
+        total_duration += step.duration_sec
+        if total_duration > MAX_TOTAL_DURATION_SEC:
+            raise ZwoParseError("workout total duration exceeds %ds" % MAX_TOTAL_DURATION_SEC)
+        doc.steps.append(step)
 
     for el in workout_el:
         canonical = _CANONICAL_TAGS.get(el.tag.lower())
@@ -154,10 +223,10 @@ def parse_zwo(filepath: str) -> WorkoutDoc:
             continue  # coaching text only, not part of the power profile
 
         if canonical == "RestDay":
-            doc.steps.append(Step(kind="rest", duration_sec=_f(attrs, "Duration") or 0.0))
+            _add_step(Step(kind="rest", duration_sec=_check_duration(_f(attrs, "Duration") or 0.0, "Duration")))
             continue
 
-        duration = _f(attrs, "Duration") or 0.0
+        duration = _check_duration(_f(attrs, "Duration") or 0.0, "Duration")
 
         if canonical in ("Warmup", "Cooldown", "Ramp"):
             lo, hi, est = _resolve_power(attrs, "Power", "PowerLow", "PowerHigh", "Zone")
@@ -181,16 +250,16 @@ def parse_zwo(filepath: str) -> WorkoutDoc:
                     lo, hi = hi, lo
             cad_lo, cad_hi = _cadence(attrs)
             kind = {"Warmup": "warmup", "Cooldown": "cooldown", "Ramp": "ramp"}[canonical]
-            doc.steps.append(Step(kind=kind, duration_sec=duration,
-                                   power_low=lo, power_high=hi, power_estimated=est,
-                                   cadence_low=cad_lo, cadence_high=cad_hi))
+            _add_step(Step(kind=kind, duration_sec=duration,
+                            power_low=lo, power_high=hi, power_estimated=est,
+                            cadence_low=cad_lo, cadence_high=cad_hi))
 
         elif canonical == "SteadyState":
             lo, hi, est = _resolve_power(attrs, "Power", "PowerLow", "PowerHigh", "Zone")
             cad_lo, cad_hi = _cadence(attrs)
-            doc.steps.append(Step(kind="steady", duration_sec=duration,
-                                   power_low=lo, power_high=hi, power_estimated=est,
-                                   cadence_low=cad_lo, cadence_high=cad_hi))
+            _add_step(Step(kind="steady", duration_sec=duration,
+                            power_low=lo, power_high=hi, power_estimated=est,
+                            cadence_low=cad_lo, cadence_high=cad_hi))
 
         elif canonical == "FreeRide":
             offsets = []
@@ -199,17 +268,19 @@ def parse_zwo(filepath: str) -> WorkoutDoc:
                     continue
                 off = _f(child.attrib, "timeoffset")
                 offsets.append(off if off is not None else 0.0)
-            doc.steps.append(Step(kind="freeride", duration_sec=duration,
-                                   textevent_offsets=offsets))
+            _add_step(Step(kind="freeride", duration_sec=duration,
+                            textevent_offsets=offsets))
 
         elif canonical == "MaxEffort":
-            doc.steps.append(Step(kind="maxeffort", duration_sec=duration))
+            _add_step(Step(kind="maxeffort", duration_sec=duration))
 
         elif canonical == "IntervalsT":
             repeat = int(_f(attrs, "Repeat") or 1)
+            if repeat > MAX_REPEAT:
+                raise ZwoParseError("IntervalsT Repeat exceeds %d" % MAX_REPEAT)
             doc.num_intervals += repeat
-            on_dur = _f(attrs, "OnDuration") or 0.0
-            off_dur = _f(attrs, "OffDuration") or 0.0
+            on_dur = _check_duration(_f(attrs, "OnDuration") or 0.0, "OnDuration")
+            off_dur = _check_duration(_f(attrs, "OffDuration") or 0.0, "OffDuration")
             on_lo, on_hi, on_est = _resolve_power(attrs, "OnPower", "PowerOnLow", "PowerOnHigh", "PowerOnZone")
             off_lo, off_hi, off_est = _resolve_power(attrs, "OffPower", "PowerOffLow", "PowerOffHigh", "PowerOffZone")
             cad_lo, cad_hi = _cadence(attrs)
@@ -227,12 +298,12 @@ def parse_zwo(filepath: str) -> WorkoutDoc:
             on_kind, off_kind = ("interval_on", "interval_off") if on_ref >= off_ref else ("interval_off", "interval_on")
 
             for _ in range(repeat):
-                doc.steps.append(Step(kind=on_kind, duration_sec=on_dur,
-                                       power_low=on_lo, power_high=on_hi, power_estimated=on_est,
-                                       cadence_low=cad_lo, cadence_high=cad_hi))
+                _add_step(Step(kind=on_kind, duration_sec=on_dur,
+                                power_low=on_lo, power_high=on_hi, power_estimated=on_est,
+                                cadence_low=cad_lo, cadence_high=cad_hi))
                 if off_dur > 0:
-                    doc.steps.append(Step(kind=off_kind, duration_sec=off_dur,
-                                           power_low=off_lo, power_high=off_hi, power_estimated=off_est,
-                                           cadence_low=cad_rest, cadence_high=cad_rest))
+                    _add_step(Step(kind=off_kind, duration_sec=off_dur,
+                                    power_low=off_lo, power_high=off_hi, power_estimated=off_est,
+                                    cadence_low=cad_rest, cadence_high=cad_rest))
 
     return doc
