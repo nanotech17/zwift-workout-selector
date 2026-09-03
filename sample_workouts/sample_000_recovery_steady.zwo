@@ -1,0 +1,2 @@
+<workout_file><author>ZWS Sample Generator</author><name>Sample: Recovery Steady 28min</name><description>Auto-generated sample workout for verifying ZWS's search features. primary_type=Recovery / structure=Steady / duration=28min / TSS=14 / IF=0.54. Not intended to represent a real training effect.
+ZWSの検索機能を確認するために自動生成したサンプルワークアウトです。主タイプ=Recovery / 構造=Steady / 時間=28分 / TSS=14 / IF=0.54。実在のトレーニング効果を意図したものではありません。</description><sportType>bike</sportType><tags><tag name="sample" /></tags><workout><SteadyState Duration="1700" Power="0.537" /></workout></workout_file>

@@ -1,0 +1,278 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<title>Zwift Workout Selector</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<header>
+  <h1>Zwift Workout Selector</h1>
+  <div class="header-actions">
+    <div class="lang-switch" role="group" aria-label="Language">
+      <button type="button" class="lang-btn" data-lang="ja">日本語</button>
+      <button type="button" class="lang-btn" data-lang="en">EN</button>
+    </div>
+    <span class="settings-toggle-wrap">
+      <button type="button" id="settings-toggle" class="secondary" data-i18n="header.settings">⚙ 設定</button>
+      <span id="settings-error-badge" class="error-badge" hidden></span>
+    </span>
+  </div>
+</header>
+
+<main>
+  <section id="settings-panel" hidden>
+    <h2 data-i18n="settings.title">設定</h2>
+
+    <fieldset>
+      <legend data-i18n="settings.data_source">データソース</legend>
+      <div class="row">
+        <label style="flex:1 1 320px"><span data-i18n="settings.zwo_dir_label">.zwoディレクトリ</span>
+          <input type="text" id="setting-zwo-dir" style="width:100%" placeholder="/path/to/zwo/files">
+        </label>
+        <button type="button" id="save-zwo-dir" class="secondary" data-i18n="settings.save">保存</button>
+      </div>
+      <p id="zwo-dir-status" class="settings-status"></p>
+      <div class="row">
+        <button type="button" id="rescan-diff" data-i18n="settings.rescan_diff">再スキャン(差分)</button>
+        <button type="button" id="rescan-force" class="secondary" data-i18n="settings.rescan_full">再スキャン(全件)</button>
+      </div>
+      <p id="scan-status" class="settings-status"></p>
+      <div class="row">
+        <label><input type="checkbox" id="setting-hide-sample"> <span data-i18n="settings.hide_sample_tag">サンプルワークアウトを検索対象から除外する</span></label>
+      </div>
+      <details id="ingest-errors-details">
+        <summary><span data-i18n="settings.ingest_errors">取り込みエラー一覧</span> <span id="ingest-errors-count"></span></summary>
+        <div id="ingest-errors-list"></div>
+      </details>
+    </fieldset>
+
+    <fieldset>
+      <legend data-i18n="settings.intervals_integration">intervals.icu連携</legend>
+      <div class="row">
+        <label>Athlete ID <input type="text" id="setting-athlete-id" class="num-sm" style="width:8em"></label>
+        <button type="button" id="save-athlete-id" class="secondary" data-i18n="settings.save">保存</button>
+      </div>
+      <div class="row">
+        <label style="flex:1 1 260px"><span data-i18n="settings.api_key">APIキー</span> <span id="api-key-status" class="settings-status"></span>
+          <input type="password" id="setting-api-key" style="width:100%" data-i18n-placeholder="settings.api_key_placeholder" placeholder="新しいキーを入力して保存（既存の値は表示されません）">
+        </label>
+        <button type="button" id="save-api-key" class="secondary" data-i18n="settings.save">保存</button>
+      </div>
+      <div class="row">
+        <button type="button" id="test-connection" class="secondary" data-i18n="settings.test_connection">接続テスト</button>
+        <span id="connection-status" class="settings-status"></span>
+      </div>
+    </fieldset>
+
+    <fieldset>
+      <legend data-i18n="settings.zone_classification">ゾーン分類（境界値・配色）</legend>
+      <p class="settings-hint" data-i18n="settings.reflect_hint">保存しただけでは既存データには反映されません。保存後は「再スキャン(全件)」を実行してください。</p>
+      <div id="zone-config-rows"></div>
+      <div class="row">
+        <button type="button" id="save-zone-config" class="secondary" data-i18n="settings.save">保存</button>
+        <button type="button" id="reset-zone-config" class="secondary" data-i18n="settings.show_defaults">既定値(Zwift準拠)を表示</button>
+      </div>
+      <p id="zone-config-status" class="settings-status"></p>
+    </fieldset>
+
+    <fieldset>
+      <legend data-i18n="settings.tuning_title">分類ロジックの詳細設定</legend>
+      <p class="settings-hint" data-i18n="settings.reflect_hint">保存しただけでは既存データには反映されません。保存後は「再スキャン(全件)」を実行してください。</p>
+
+      <h4 data-i18n="settings.sweet_spot_h4">Sweet Spot（タグ <code>sweet_spot</code>）</h4>
+      <div class="tri-grid">
+        <label><span data-i18n="settings.sweet_spot_low">下限(%FTP)</span> <input type="number" step="1" class="num-sm" id="tune-sweet_spot_low"></label>
+        <label><span data-i18n="settings.sweet_spot_high">上限(%FTP)</span> <input type="number" step="1" class="num-sm" id="tune-sweet_spot_high"></label>
+        <label><span data-i18n="settings.sweet_spot_tag_min_pct">タグ付与の最低滞在率(%)</span> <input type="number" step="1" class="num-sm" id="tune-sweet_spot_tag_min_pct"></label>
+      </div>
+
+      <h4 data-i18n="settings.sweetspot_h4">Sweet Spot（タグ <code>sweetspot</code>・厳格版、tempo/thresholdと共存）</h4>
+      <div class="tri-grid">
+        <label><span data-i18n="settings.ss_low">SS帯 下限(%FTP)</span> <input type="number" step="1" class="num-sm" id="tune-sweetspot_tag_low"></label>
+        <label><span data-i18n="settings.ss_high">SS帯 上限(%FTP)</span> <input type="number" step="1" class="num-sm" id="tune-sweetspot_tag_high"></label>
+        <label><span data-i18n="settings.high_frac">HIGH判定(%FTP超)</span> <input type="number" step="1" class="num-sm" id="tune-sweetspot_high_frac"></label>
+        <label><span data-i18n="settings.recovery_frac">easy recovery(%FTP未満)</span> <input type="number" step="1" class="num-sm" id="tune-sweetspot_recovery_frac"></label>
+        <label><span data-i18n="settings.min_minutes">SS_TIME最低(分)</span> <input type="number" step="1" class="num-sm" id="tune-sweetspot_min_minutes"></label>
+        <label><span data-i18n="settings.ss_ratio_min">SS/WORK最低(%)</span> <input type="number" step="1" class="num-sm" id="tune-sweetspot_ss_ratio_min"></label>
+        <label><span data-i18n="settings.high_ratio_max">HIGH/WORK上限(%)</span> <input type="number" step="1" class="num-sm" id="tune-sweetspot_high_ratio_max"></label>
+      </div>
+
+      <h4 data-i18n="settings.structure_h4">構造分類</h4>
+      <div class="tri-grid">
+        <label><span data-i18n="settings.interval_structure_threshold">インターバル判定 時間比(%)</span> <input type="number" step="1" class="num-sm" id="tune-interval_structure_threshold"></label>
+        <label><span data-i18n="settings.vi_interval_threshold">VI interval閾値</span> <input type="number" step="0.01" class="num-sm" id="tune-vi_interval_threshold"></label>
+        <label><span data-i18n="settings.vi_mixed_threshold">VI mixed閾値</span> <input type="number" step="0.01" class="num-sm" id="tune-vi_mixed_threshold"></label>
+      </div>
+
+      <h4 data-i18n="settings.cadence_h4">ケイデンス・極端パワー</h4>
+      <div class="tri-grid">
+        <label><span data-i18n="settings.high_cadence_rpm">高ケイデンス(rpm以上)</span> <input type="number" step="1" class="num-sm" id="tune-high_cadence_rpm"></label>
+        <label><span data-i18n="settings.low_cadence_rpm">低ケイデンス(rpm以下)</span> <input type="number" step="1" class="num-sm" id="tune-low_cadence_rpm"></label>
+        <label><span data-i18n="settings.extreme_power_frac">極端パワー無視(%FTP超)</span> <input type="number" step="1" class="num-sm" id="tune-extreme_power_frac"></label>
+      </div>
+
+      <div class="row">
+        <button type="button" id="save-tuning" class="secondary" data-i18n="settings.save">保存</button>
+        <button type="button" id="reset-tuning" class="secondary" data-i18n="settings.show_defaults_plain">既定値を表示</button>
+      </div>
+      <p id="tuning-status" class="settings-status"></p>
+    </fieldset>
+  </section>
+
+  <section id="search-panel">
+    <div class="search-panel-header">
+      <h2 data-i18n="search.title">検索条件</h2>
+      <button type="button" id="search-form-toggle" class="secondary">▲</button>
+    </div>
+    <form id="search-form">
+      <div class="row">
+        <label style="flex:1 1 320px"><span data-i18n="search.name_query">ワークアウト名</span>
+          <input type="text" name="name_query" style="width:100%" data-i18n-placeholder="search.name_query_placeholder" placeholder="部分一致で検索">
+        </label>
+      </div>
+      <table class="range-table">
+        <tr>
+          <th data-i18n="search.duration_min">時間(分)</th>
+          <td><input type="number" name="duration_min" placeholder="min" class="num-sm"></td>
+          <td class="tilde">〜</td>
+          <td><input type="number" name="duration_max" placeholder="max" class="num-sm"></td>
+        </tr>
+        <tr>
+          <th>TSS</th>
+          <td><input type="number" name="tss_min" placeholder="min" class="num-sm"></td>
+          <td class="tilde">〜</td>
+          <td><input type="number" name="tss_max" placeholder="max" class="num-sm"></td>
+        </tr>
+        <tr>
+          <th>IF</th>
+          <td><input type="number" name="if_min" placeholder="min" step="0.01" class="num-sm"></td>
+          <td class="tilde">〜</td>
+          <td><input type="number" name="if_max" placeholder="max" step="0.01" class="num-sm"></td>
+        </tr>
+      </table>
+
+      <fieldset>
+        <legend data-i18n="search.primary_type">主タイプ</legend>
+        <div class="check-grid" data-name="primary_type">
+          <label><input type="checkbox" value="recovery">recovery</label>
+          <label><input type="checkbox" value="endurance">endurance</label>
+          <label><input type="checkbox" value="tempo">tempo</label>
+          <label><input type="checkbox" value="threshold">threshold</label>
+          <label><input type="checkbox" value="vo2">vo2</label>
+          <label><input type="checkbox" value="anaerobic">anaerobic</label>
+          <label><input type="checkbox" value="mixed">mixed</label>
+        </div>
+      </fieldset>
+
+      <fieldset>
+        <legend data-i18n="search.sub_type">副タイプ</legend>
+        <div class="check-grid" data-name="sub_type">
+          <label><input type="checkbox" value="is_rest_day">is_rest_day</label>
+          <label><input type="checkbox" value="sweetspot_loose">sweetspot_loose</label>
+          <label><input type="checkbox" value="sweetspot_tight">sweetspot_tight</label>
+          <label><input type="checkbox" value="has_freeride">has_freeride</label>
+          <label><input type="checkbox" value="has_ramp">has_ramp</label>
+          <label><input type="checkbox" value="has_maxeffort">has_maxeffort</label>
+          <label><input type="checkbox" value="has_max_sprint">has_max_sprint</label>
+          <label><input type="checkbox" value="has_cadence">has_cadence</label>
+          <label><input type="checkbox" value="has_high_cadence">has_high_cadence</label>
+          <label><input type="checkbox" value="has_low_cadence">has_low_cadence</label>
+        </div>
+      </fieldset>
+
+      <fieldset>
+        <legend data-i18n="search.structure">構造</legend>
+        <div class="check-grid" data-name="structure_type">
+          <label><input type="checkbox" value="steady">steady</label>
+          <label><input type="checkbox" value="interval">interval</label>
+          <label><input type="checkbox" value="mixed">mixed</label>
+        </div>
+      </fieldset>
+
+      <div class="row">
+        <label><span data-i18n="search.zone_emphasis">ゾーン強調 Z</span><input type="number" name="zone" min="1" max="6" class="num-xs"></label>
+        <label><span data-i18n="search.zone_min_pct">滞在率 &ge;</span> <input type="number" name="zone_min_pct" placeholder="%" class="num-sm"> %</label>
+      </div>
+
+      <fieldset>
+        <legend data-i18n="search.flags">フラグ</legend>
+        <div class="tri-grid">
+          <label><span data-i18n="search.cadence">ケイデンス指定</span> <select name="cadence"><option value="">any</option><option value="yes" data-i18n="search.opt_yes">あり</option><option value="no" data-i18n="search.opt_no">なし</option></select></label>
+          <label><span data-i18n="search.high_cadence">高ケイデンス(&ge;100rpm)</span> <select name="high_cadence"><option value="">any</option><option value="yes" data-i18n="search.opt_yes">あり</option><option value="no" data-i18n="search.opt_no">なし</option></select></label>
+          <label><span data-i18n="search.low_cadence">低ケイデンス(&le;70rpm)</span> <select name="low_cadence"><option value="">any</option><option value="yes" data-i18n="search.opt_yes">あり</option><option value="no" data-i18n="search.opt_no">なし</option></select></label>
+          <label>FreeRide <select name="freeride"><option value="">any</option><option value="yes" data-i18n="search.opt_yes">あり</option><option value="no" data-i18n="search.opt_no">なし</option></select></label>
+          <label><span data-i18n="search.warmup">ウォームアップ</span> <select name="warmup"><option value="">any</option><option value="yes" data-i18n="search.opt_yes">あり</option><option value="no" data-i18n="search.opt_no">なし</option></select></label>
+          <label><span data-i18n="search.cooldown">クールダウン</span> <select name="cooldown"><option value="">any</option><option value="yes" data-i18n="search.opt_yes">あり</option><option value="no" data-i18n="search.opt_no">なし</option></select></label>
+        </div>
+      </fieldset>
+
+      <fieldset>
+        <legend data-i18n="search.tags">タグ</legend>
+        <div class="row">
+          <input type="text" id="tags-input" name="tags" style="flex:1 1 300px" data-i18n-placeholder="search.tags_placeholder" placeholder="クリックして追加、またはカンマ区切りで入力">
+          <button type="button" id="tags-mode" class="secondary" data-mode="and">AND</button>
+        </div>
+        <div id="tag-chips" class="tag-chips"></div>
+      </fieldset>
+
+      <div class="row">
+        <label><span data-i18n="search.target_duration">目標時間(分)</span> <input type="number" name="target_duration" class="num-sm"></label>
+        <label><span data-i18n="search.target_tss">目標TSS</span> <input type="number" name="target_tss" class="num-sm"></label>
+        <label><span data-i18n="search.limit">件数</span> <input type="number" name="limit" value="200" class="num-sm"></label>
+        <label><input type="checkbox" name="include_duplicates" value="true"> <span data-i18n="search.include_duplicates">重複(同一内容)を含める</span></label>
+        <label><input type="checkbox" name="favorites_only" value="true"> <span data-i18n="search.favorites_only">お気に入りのみ</span></label>
+      </div>
+
+      <div class="row">
+        <button type="submit" class="primary" data-i18n="search.submit">検索</button>
+        <button type="button" class="secondary" id="clear-form" data-i18n="search.clear">検索条件クリア</button>
+      </div>
+    </form>
+  </section>
+
+  <section id="results-panel">
+    <h2><span data-i18n="results.title">候補</span> <span id="result-count"></span></h2>
+    <div class="row sort-row">
+      <label><span data-i18n="results.sort_by">並べ替え:</span>
+        <select id="sort-field">
+          <option value="" data-i18n="results.sort_default">検索順(目標への近さ)</option>
+          <option value="duration_min" data-i18n="results.sort_duration">合計時間</option>
+          <option value="tss">TSS</option>
+          <option value="if">IF</option>
+        </select>
+      </label>
+      <button type="button" id="sort-dir" class="secondary" data-dir="asc" data-i18n="results.asc">昇順 ▲</button>
+    </div>
+    <div id="results"></div>
+    <div class="row pagination-row" id="pagination-row" hidden>
+      <button type="button" id="page-prev" class="secondary" data-i18n="results.page_prev">前へ</button>
+      <span id="page-indicator"></span>
+      <button type="button" id="page-next" class="secondary" data-i18n="results.page_next">次へ</button>
+    </div>
+  </section>
+
+  <section id="deliveries-panel">
+    <h2 data-i18n="deliveries.title">配信状況(intervals.icu登録済み)</h2>
+    <button id="deliveries-refresh" data-i18n="deliveries.refresh">更新</button>
+    <div id="deliveries"></div>
+  </section>
+</main>
+
+<dialog id="deliver-dialog">
+  <form id="deliver-form">
+    <h3><span data-i18n="deliver_dialog.title_prefix">登録:</span> <span id="deliver-workout-name"></span></h3>
+    <div class="row">
+      <label><span data-i18n="deliver_dialog.date">日付</span> <input type="date" id="deliver-date" required></label>
+      <label><span data-i18n="deliver_dialog.time">時刻(任意)</span> <input type="time" id="deliver-time"></label>
+    </div>
+    <div class="row">
+      <button type="submit" class="primary" data-i18n="deliver_dialog.submit">登録</button>
+      <button type="button" class="secondary" id="deliver-cancel" data-i18n="deliver_dialog.cancel">キャンセル</button>
+    </div>
+  </form>
+</dialog>
+
+<script src="app.js"></script>
+</body>
+</html>
