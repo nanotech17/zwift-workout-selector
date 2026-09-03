@@ -109,6 +109,38 @@ per "Moving to production" above.
 In **⚙ Settings**, enter your intervals.icu Athlete ID and API key to enable
 scheduling workouts onto your Zwift calendar and testing the connection.
 
+### Notes on workout analysis
+
+A few classification behaviors worth knowing about:
+
+- **Pure rest-day files are hidden from search.** A `.zwo` file with no
+  actual `<workout>` steps (a "complete rest day" placeholder) is always
+  excluded from search results.
+- **Cooldown direction is normalized.** Some `.zwo` files author a
+  Cooldown's start/end power in ascending numeric order even though it
+  should still play as a descending cooldown in Zwift. ZWS always treats a
+  Cooldown as ending lower than it starts, regardless of how the file orders
+  `PowerLow`/`PowerHigh`.
+- **FreeRide sections are handled heuristically**, since they carry no
+  %FTP target of their own:
+  - A quiet FreeRide block (little else in the file above tempo intensity,
+    at most one coaching message per block) is treated as easy recovery
+    (~55%FTP).
+  - A FreeRide block standing in for a hard effort (several short bursts,
+    or alongside genuinely hard content elsewhere in the file) is assigned
+    a representative %FTP based on its length (e.g. ~5 min → roughly
+    VO2max intensity).
+  - A long FreeRide block with several periodic on-screen coaching
+    messages is treated as structured-but-unquantifiable and excluded from
+    TSS/IF math entirely (only its duration counts). The message text
+    itself is never interpreted — only structural signals (block length,
+    message count/timing) decide which of these three cases applies.
+- **"Sweet spot" has two separate definitions**, since where the threshold
+  sits is genuinely a judgment call: `sweet_spot_loose` (a looser
+  share-of-time-in-band check) and `sweet_spot_tight` (a stricter check on
+  both the %FTP band and how much of the workout it dominates). Both are
+  configurable from **⚙ Settings**.
+
 ### License
 
 MIT — see `LICENSE`.
@@ -172,6 +204,18 @@ python3 -m venv .venv
 ### intervals.icu連携（任意）
 
 **⚙ 設定**でintervals.icuのAthlete IDとAPIキーを入力すると、Zwiftカレンダーへのワークアウト登録・接続テストが可能になります。
+
+### ワークアウト解析に関する注意事項
+
+ZWSの分類ロジックについて、知っておくと役立つ挙動をいくつか挙げます。
+
+- **完全休養ファイルは検索結果に表示されません。** `<workout>`内に実際のステップが定義されていない「完全休養」用の`.zwo`ファイルは、常に検索対象から除外されます。
+- **クールダウンの方向は正規化されます。** 一部の`.zwo`ファイルでは、クールダウンの開始/終了パワーが数値の昇順（小さい→大きい）で記載されていることがありますが、実際にZwift上では通常どおり降順（大きい→小さい）のクールダウンとして再生されます。ZWSは`PowerLow`/`PowerHigh`の記載順によらず、クールダウンは常に「開始が高く終了が低い」ものとして扱います。
+- **Free Rideセクションはヒューリスティックに解釈します。** Free Ride自体には%FTPの目標値がないためです。
+  - 他のセクションがテンポ強度を超えず、各ブロックの画面メッセージが1件以下の「静かな」Free Rideは、リカバリー相当（約55%FTP）として計算に含めます。
+  - 短いFree Rideが複数回連続する、またはファイル内の他のセクションが明確に高強度である場合は、そのブロックを高強度ドリルの代替と見做し、長さに応じた代表%FTPを割り当てます（例: 約5分ならVO2max相当）。
+  - 長いFree Rideブロックに周期的な画面メッセージが複数付随する場合は、構造化されているが定量化が難しいドリルと判断し、TSS/IFの計算からは除外します（時間のみカウント）。メッセージの文面自体は解釈せず、ブロックの長さやメッセージの件数・タイミングといった構造的な特徴のみで、上記どの扱いになるかを判定します。
+- **「スイートスポット」判定は2種類あります。** 判定基準（%FTPの範囲や、ワークアウト全体に占める時間比など）は考え方によって異なるため、緩やかな判定（`sweet_spot_loose`）と、より厳密な判定（`sweet_spot_tight`）の2種類を用意しています。いずれも**⚙ 設定**画面からカスタマイズ可能です。
 
 ### ライセンス
 
