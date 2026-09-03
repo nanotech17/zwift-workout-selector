@@ -3,8 +3,16 @@
 A self-hosted, single-user web app that catalogs a local library of Zwift
 `.zwo` workout files, computes training metrics (TSS/IF/zone distribution/
 structure) for each one, lets you search and pick workouts by those metrics,
-and schedules the chosen ones onto your Zwift calendar via the intervals.icu
+and schedules the chosen ones onto your Zwift calendar via the Intervals.icu
 API.
+
+> ⚠️ **Security note**: ZWS is designed for personal use on a trusted LAN
+> and has no authentication built in — every API endpoint (search,
+> settings, delivery scheduling, etc.) is reachable by anyone who can
+> reach the server. **Do not expose it to the internet or any
+> shared/untrusted network.**
+>
+> ⚠️ **セキュリティに関する注意**: ZWSは信頼できるLAN内での個人利用を前提として設計されており、認証機能は実装されていません。検索・設定・配信登録など、すべてのAPIエンドポイントはサーバーに到達できる誰からでもアクセス可能です。**インターネットや、信頼できない/共有のネットワークには公開しないでください。**
 
 This README is in English, followed by a Japanese translation.
 このREADMEは英語の後に日本語訳を掲載しています。
@@ -26,7 +34,7 @@ This README is in English, followed by a Japanese translation.
   profile and a zone-distribution chart, so you can judge its shape without
   opening it in Zwift first.
 - **One-touch push to Zwift** — schedule a workout onto your Zwift calendar
-  via intervals.icu directly from the search results, and cancel it just as
+  via Intervals.icu directly from the search results, and cancel it just as
   easily.
 - **Favorites and duplicate detection** — star workouts for quick access
   later, and let ZWS automatically collapse structurally-identical
@@ -36,7 +44,7 @@ This README is in English, followed by a Japanese translation.
 ### Requirements
 
 - Python 3.9+
-- An [intervals.icu](https://intervals.icu) account and API key, if you want
+- An [Intervals.icu](https://intervals.icu) account and API key, if you want
   to schedule workouts onto your calendar (optional — search/browse works
   without it)
 
@@ -104,9 +112,9 @@ starting points:
 Once you have files, point the `.zwo` directory at wherever you keep them,
 per "Moving to production" above.
 
-### intervals.icu integration (optional)
+### Intervals.icu integration (optional)
 
-In **⚙ Settings**, enter your intervals.icu Athlete ID and API key to enable
+In **⚙ Settings**, enter your Intervals.icu Athlete ID and API key to enable
 scheduling workouts onto your Zwift calendar and testing the connection.
 
 ### Notes on workout analysis
@@ -154,13 +162,13 @@ MIT — see `LICENSE`.
 - **自動解析** — `.zwo`ライブラリをスキャンし、全ワークアウトのTSS・IF・ゾーン分布・主タイプ・構造（持続/インターバル/複合）を自動算出。手動タグ付けは不要です。
 - **きめ細かいフィルタリング** — 時間・TSS・IF・主タイプ・構造・副タイプ（ケイデンス指定、FreeRide、ランプ、スイートスポット等）、フリーテキストタグを組み合わせて、数千件の中から目的のワークアウトを数秒で絞り込めます。
 - **視認性の高いグラフィカル表示** — 全ワークアウトにパワープロファイル図とゾーン分布グラフが表示されるため、Zwiftで開く前に内容を把握できます。
-- **ワンタッチでZwiftへプッシュ** — 検索結果から直接、intervals.icu経由でZwiftカレンダーへ登録。解除も同様に簡単です。
+- **ワンタッチでZwiftへプッシュ** — 検索結果から直接、Intervals.icu経由でZwiftカレンダーへ登録。解除も同様に簡単です。
 - **お気に入り登録・重複検出** — 気に入ったワークアウトにスターを付けて後から素早くアクセス。構造的に同一のワークアウト（トレーニングプラン内で複数週に再利用されているセッション等）は自動的にまとめて表示され、結果が重複で埋まりません。
 
 ### 動作要件
 
 - Python 3.9以上
-- [intervals.icu](https://intervals.icu)のアカウントとAPIキー（Zwiftカレンダーへの登録機能を使う場合のみ必要。検索・閲覧のみなら不要）
+- [Intervals.icu](https://intervals.icu)のアカウントとAPIキー（Zwiftカレンダーへの登録機能を使う場合のみ必要。検索・閲覧のみなら不要）
 
 ### セットアップ
 
@@ -201,9 +209,9 @@ python3 -m venv .venv
 
 入手したファイルは、上記「本番運用への移行」の手順に沿って.zwoディレクトリに指定してください。
 
-### intervals.icu連携（任意）
+### Intervals.icu連携（任意）
 
-**⚙ 設定**でintervals.icuのAthlete IDとAPIキーを入力すると、Zwiftカレンダーへのワークアウト登録・接続テストが可能になります。
+**⚙ 設定**でIntervals.icuのAthlete IDとAPIキーを入力すると、Zwiftカレンダーへのワークアウト登録・接続テストが可能になります。
 
 ### ワークアウト解析に関する注意事項
 

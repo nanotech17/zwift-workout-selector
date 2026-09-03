@@ -6,7 +6,14 @@ flat list of Step objects that metrics.py can analyze.
 """
 from dataclasses import dataclass, field
 from typing import List, Optional, Dict
-import xml.etree.ElementTree as ET
+# .zwo files can come from third-party sources (Zwift forums, workouts.wad
+# extraction) — defusedxml guards xml.etree.ElementTree's parse against
+# entity-expansion ("billion laughs") DoS payloads while staying API-
+# compatible (same Element/ParseError types; verified 2026-09). Its own
+# attack-detected exceptions (EntitiesForbidden etc.) subclass ValueError,
+# not ParseError, so they're caught separately below.
+import defusedxml.ElementTree as ET
+from defusedxml.common import DefusedXmlException
 
 # Real files contain case variants of the "official" tag names
 # (e.g. "Freeride", "cooldown", "SolidState" as a typo for "SteadyState").
@@ -103,7 +110,7 @@ def _cadence(attrs: Dict[str, str]):
 def parse_zwo(filepath: str) -> WorkoutDoc:
     try:
         tree = ET.parse(filepath)
-    except ET.ParseError as e:
+    except (ET.ParseError, DefusedXmlException) as e:
         raise ZwoParseError(str(e))
 
     root = tree.getroot()

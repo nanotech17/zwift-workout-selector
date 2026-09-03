@@ -16,7 +16,7 @@ const I18N = {
     "settings.rescan_full": "再スキャン(全件)",
     "settings.hide_sample_tag": "サンプルワークアウトを検索対象から除外する",
     "settings.ingest_errors": "取り込みエラー一覧",
-    "settings.intervals_integration": "intervals.icu連携",
+    "settings.intervals_integration": "Intervals.icu連携",
     "settings.api_key": "APIキー",
     "settings.api_key_placeholder": "新しいキーを入力して保存（既存の値は表示されません）",
     "settings.test_connection": "接続テスト",
@@ -117,13 +117,13 @@ const I18N = {
     "card.favorite_on": "お気に入り解除",
     "card.favorite_off": "お気に入りに追加",
 
-    "deliveries.title": "配信状況(intervals.icu登録済み)",
+    "deliveries.title": "配信状況(Intervals.icu登録済み)",
     "deliveries.refresh": "更新",
     "deliveries.empty": "登録中のワークアウトはありません。",
     "deliveries.remove": "解除",
     "deliveries.remove_confirm": "解除してよろしいですか？",
     "deliveries.remove_failed": "解除に失敗しました: {msg}",
-    "deliveries.sync_failed": "intervals.icuとの同期に失敗しました: {msg}",
+    "deliveries.sync_failed": "Intervals.icuとの同期に失敗しました: {msg}",
 
     "deliver_dialog.title_prefix": "登録:",
     "deliver_dialog.date": "日付",
@@ -159,7 +159,7 @@ const I18N = {
     "settings.rescan_full": "Rescan (Full)",
     "settings.hide_sample_tag": "Exclude sample workouts from search",
     "settings.ingest_errors": "Ingest Errors",
-    "settings.intervals_integration": "intervals.icu Integration",
+    "settings.intervals_integration": "Intervals.icu Integration",
     "settings.api_key": "API Key",
     "settings.api_key_placeholder": "Enter a new key to save (existing value is hidden)",
     "settings.test_connection": "Test Connection",
@@ -260,13 +260,13 @@ const I18N = {
     "card.favorite_on": "Remove from favorites",
     "card.favorite_off": "Add to favorites",
 
-    "deliveries.title": "Delivery Status (registered on intervals.icu)",
+    "deliveries.title": "Delivery Status (registered on Intervals.icu)",
     "deliveries.refresh": "Refresh",
     "deliveries.empty": "No workouts currently registered.",
     "deliveries.remove": "Remove",
     "deliveries.remove_confirm": "Remove this delivery?",
     "deliveries.remove_failed": "Failed to remove: {msg}",
-    "deliveries.sync_failed": "Failed to sync with intervals.icu: {msg}",
+    "deliveries.sync_failed": "Failed to sync with Intervals.icu: {msg}",
 
     "deliver_dialog.title_prefix": "Register:",
     "deliver_dialog.date": "Date",
@@ -616,8 +616,18 @@ function blockBarsHtml(steps) {
   return `<div class="block-bars">${rows.join("")}</div>`;
 }
 
+// .zwo file content (name/description/tags) is untrusted free text — it can
+// come from third-party sources (Zwift forums, workouts.wad extraction) —
+// so anything from it must be escaped before landing in an innerHTML
+// template. Never used for JS-object property access or as a selector.
+function escapeHtml(s) {
+  return String(s ?? "").replace(/[&<>"']/g, c => ({
+    "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;",
+  }[c]));
+}
+
 function tagPillsHtml(tags) {
-  return tags.map(tag => `<span class="tag-pill">${tag}</span>`).join("");
+  return tags.map(tag => `<span class="tag-pill">${escapeHtml(tag)}</span>`).join("");
 }
 
 function qs(form) {
@@ -750,15 +760,15 @@ function renderCard(w, steps) {
     <div class="main">
       <div class="name">
         <button class="star-toggle" data-id="${w.id}" title="${t(w.is_favorite ? "card.favorite_on" : "card.favorite_off")}">${w.is_favorite ? "★" : "☆"}</button>
-        ${w.name || w.filename}${w.active_deliveries?.length
-        ? `<span class="scheduled-badge" title="${t("card.scheduled_dates", {dates: w.active_deliveries.join(", ")})}">${t("card.scheduled")}</span>`
+        ${escapeHtml(w.name || w.filename)}${w.active_deliveries?.length
+        ? `<span class="scheduled-badge" title="${escapeHtml(t("card.scheduled_dates", {dates: w.active_deliveries.join(", ")}))}">${t("card.scheduled")}</span>`
         : ""}</div>
       <div class="meta">${w.duration_min}${t("unit.min")} / TSS ${w.tss ?? "-"} / IF ${w.if ?? "-"} / ${w.primary_type} / ${w.structure_type}</div>
       <div class="tags">${tagPillsHtml(w.tags)}</div>
     </div>
     <div class="actions">
       <button class="secondary" data-action="detail" data-id="${w.id}">${isExpanded ? t("card.close") : t("card.details")}</button>
-      <button class="primary" data-action="deliver" data-id="${w.id}" data-name="${(w.name || w.filename).replace(/"/g, '&quot;')}">${t("card.register")}</button>
+      <button class="primary" data-action="deliver" data-id="${w.id}" data-name="${escapeHtml(w.name || w.filename)}">${t("card.register")}</button>
     </div>
   `;
   div.querySelector('[data-action="detail"]').addEventListener("click", () => toggleDetail(w.id));
@@ -784,10 +794,10 @@ function detailBodyHtml(w, steps) {
   const durText = fmtDurationLong(w.duration_min);
   return `
     <div class="detail-title-row">
-      <h3><button class="star-toggle" data-id="${w.id}" title="${t(w.is_favorite ? "card.favorite_on" : "card.favorite_off")}">${w.is_favorite ? "★" : "☆"}</button> ${w.name}</h3>
+      <h3><button class="star-toggle" data-id="${w.id}" title="${t(w.is_favorite ? "card.favorite_on" : "card.favorite_off")}">${w.is_favorite ? "★" : "☆"}</button> ${escapeHtml(w.name)}</h3>
       <a class="btn secondary btn-download" href="/api/workouts/${w.id}/download" download>⬇ .zwo</a>
     </div>
-    <p class="meta-line">${t("detail.primary_type")} ${w.primary_type} / ${t("detail.structure")} ${w.structure_type} / ${t("detail.tags")} ${w.tags.join(", ")}</p>
+    <p class="meta-line">${t("detail.primary_type")} ${w.primary_type} / ${t("detail.structure")} ${w.structure_type} / ${t("detail.tags")} ${w.tags.map(escapeHtml).join(", ")}</p>
     <div class="detail-columns">
       <div class="detail-left">
         ${blockBarsHtml(steps)}
@@ -808,7 +818,7 @@ function detailBodyHtml(w, steps) {
         </div>
       </div>
     </div>
-    <p class="description">${w.description || ""}</p>
+    <p class="description">${escapeHtml(w.description || "")}</p>
   `;
 }
 
@@ -917,7 +927,7 @@ async function loadDeliveries() {
     const div = document.createElement("div");
     div.className = "dcard";
     div.innerHTML = `
-      <span>${d.scheduled_date} - ${d.workout_name}</span>
+      <span>${escapeHtml(d.scheduled_date)} - ${escapeHtml(d.workout_name)}</span>
       <button class="danger">${t("deliveries.remove")}</button>
     `;
     div.querySelector("button").addEventListener("click", async () => {
@@ -947,7 +957,7 @@ async function loadTagChips() {
   const tags = await fetch("/api/tags").then(r => r.json()).catch(() => []);
   const container = document.getElementById("tag-chips");
   container.innerHTML = tags.map(tg =>
-    `<span class="tag-chip" data-tag="${tg.tag}">${tg.tag}<span class="n">${tg.count}</span></span>`
+    `<span class="tag-chip" data-tag="${escapeHtml(tg.tag)}">${escapeHtml(tg.tag)}<span class="n">${tg.count}</span></span>`
   ).join("");
   container.querySelectorAll(".tag-chip").forEach(chip => {
     chip.addEventListener("click", () => {
@@ -1083,7 +1093,7 @@ async function loadIngestErrors() {
   document.getElementById("ingest-errors-count").textContent = t("settings.errors_count", {n: rows.length});
   const list = document.getElementById("ingest-errors-list");
   list.innerHTML = rows.length
-    ? rows.map(r => `<div class="ingest-error-row"><div class="path">${r.filepath}</div><div class="msg">${r.error}</div></div>`).join("")
+    ? rows.map(r => `<div class="ingest-error-row"><div class="path">${escapeHtml(r.filepath)}</div><div class="msg">${escapeHtml(r.error)}</div></div>`).join("")
     : `<p>${t("settings.errors_none")}</p>`;
 
   // Header badge — visible without opening 設定, so a persistently-broken

@@ -4,6 +4,7 @@ stack yet."""
 import base64
 import json
 import urllib.error
+import urllib.parse
 import urllib.request
 from typing import Optional
 
@@ -17,6 +18,16 @@ class IntervalsApiError(Exception):
 def _auth_header(api_key: str) -> str:
     token = base64.b64encode(("API_KEY:%s" % api_key).encode("utf-8")).decode("ascii")
     return "Basic %s" % token
+
+
+def _q(value) -> str:
+    """URL-encodes a value for use as a path segment. athlete_id (settings
+    screen) and scheduled_date/time (delivery form) reach here with no
+    format validation upstream — without this, a value containing URL-
+    special characters (/, &, #, ?) could alter the request path or inject
+    extra query parameters into the intervals.icu request instead of being
+    treated as literal data (owner-directed security fix, 2026-09)."""
+    return urllib.parse.quote(str(value), safe="")
 
 
 def _request(method: str, url: str, api_key: str, body: Optional[dict] = None) -> dict:
@@ -47,7 +58,7 @@ def create_event(api_key: str, athlete_id: str, name: str, description: str,
     scheduled_time is "HH:MM" (from the UI's <input type="time">) or None,
     in which case the event defaults to midnight local, same as before time
     selection existed."""
-    url = "%s/athlete/%s/events" % (API_BASE, athlete_id)
+    url = "%s/athlete/%s/events" % (API_BASE, _q(athlete_id))
     body = {
         "category": "WORKOUT",
         "type": "Ride",
@@ -61,7 +72,7 @@ def create_event(api_key: str, athlete_id: str, name: str, description: str,
 
 
 def delete_event(api_key: str, athlete_id: str, event_id) -> None:
-    url = "%s/athlete/%s/events/%s" % (API_BASE, athlete_id, event_id)
+    url = "%s/athlete/%s/events/%s" % (API_BASE, _q(athlete_id), _q(event_id))
     _request("DELETE", url, api_key, None)
 
 
@@ -72,9 +83,8 @@ def list_events(api_key: str, athlete_id: str, oldest: str, newest: str,
     deleted directly there (or via Zwift) leaves no trace here otherwise —
     §8 notes intervals assigns its own event ids, so there's no client UID
     it could notify us through. oldest/newest are "YYYY-MM-DD"."""
-    url = "%s/athlete/%s/events?oldest=%s&newest=%s&category=%s" % (
-        API_BASE, athlete_id, oldest, newest, category,
-    )
+    query = urllib.parse.urlencode({"oldest": oldest, "newest": newest, "category": category})
+    url = "%s/athlete/%s/events?%s" % (API_BASE, _q(athlete_id), query)
     result = _request("GET", url, api_key, None)
     return result if isinstance(result, list) else []
 
@@ -82,5 +92,5 @@ def list_events(api_key: str, athlete_id: str, oldest: str, newest: str,
 def get_athlete(api_key: str, athlete_id: str) -> dict:
     """GET .../athlete/{id} — read-only profile fetch, used only as a
     connection test from the settings screen (no calendar side effects)."""
-    url = "%s/athlete/%s" % (API_BASE, athlete_id)
+    url = "%s/athlete/%s" % (API_BASE, _q(athlete_id))
     return _request("GET", url, api_key, None)

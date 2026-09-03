@@ -43,7 +43,12 @@ import os
 import struct
 import sys
 import tempfile
-import xml.etree.ElementTree as ET
+# workouts.wad is game data, not attacker-controlled, but the extracted
+# XML is handled the same way as any other .zwo source in this app —
+# defusedxml guards against entity-expansion DoS payloads; see
+# workout_selector/zwo_parser.py for the full rationale.
+import defusedxml.ElementTree as ET
+from defusedxml.common import DefusedXmlException
 
 # --- stage 1: extract -----------------------------------------------------
 
@@ -219,7 +224,7 @@ def cmd_convert(workouts_dir: str):
                 tree.write(new_path, encoding="unicode", xml_declaration=False)
                 os.remove(path)
                 converted += 1
-            except ET.ParseError as e:
+            except (ET.ParseError, DefusedXmlException) as e:
                 print(f"  skip (parse error): {path}: {e}", file=sys.stderr)
                 errors += 1
 

@@ -18,7 +18,7 @@ from typing import List, Optional
 from fastapi import FastAPI, HTTPException
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from . import db as dbmod
 from . import intervals_api as api
@@ -251,8 +251,12 @@ def api_download(workout_id: int):
 
 class DeliverRequest(BaseModel):
     workout_id: int
-    date: str  # YYYY-MM-DD
-    time: Optional[str] = None  # HH:MM, blank -> midnight
+    # Enforced (not just documented) since these flow unescaped into the
+    # intervals.icu request URL/query string downstream (intervals_api.py) —
+    # the UI's <input type="date">/<input type="time"> always produce these
+    # exact formats, so this rejects nothing a real client would ever send.
+    date: str = Field(pattern=r"^\d{4}-\d{2}-\d{2}$")  # YYYY-MM-DD
+    time: Optional[str] = Field(default=None, pattern=r"^\d{2}:\d{2}$")  # HH:MM, blank -> midnight
     replace: bool = False
 
 
