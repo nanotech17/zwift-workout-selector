@@ -723,18 +723,15 @@ async function fetchPage(offset) {
   const res = await fetch("/api/workouts?" + params.toString());
   const data = await res.json();
 
-  // Fetch each result's step breakdown in parallel so the real §9 profile
-  // (not just a placeholder) can be drawn for every card.
-  const stepsList = await Promise.all(
-    data.results.map(w => fetch(`/api/workouts/${w.id}/steps`).then(r => r.json()).catch(() => []))
-  );
-
   lastResults = data.results;
   lastMatchedCount = data.matched;
   currentOffset = data.offset;
   currentLimit = data.limit;
+  // Step breakdown now comes embedded in each result (server-side, see
+  // api_search) instead of a separate per-card fetch — one search used to
+  // fan out N parallel /steps requests, one per card.
   lastStepsById = {};
-  data.results.forEach((w, i) => { lastStepsById[w.id] = stepsList[i]; });
+  data.results.forEach(w => { lastStepsById[w.id] = w.steps || []; });
   expandedId = null;
 
   updateResultCountLabel();

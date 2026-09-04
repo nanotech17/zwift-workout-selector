@@ -180,6 +180,23 @@ def api_search(
         s["tags"] = sorted(tag_map.get(r["id"], []))
         s["active_deliveries"] = sorted(d for d in delivery_map.get(r["id"], []) if d)
         s["is_favorite"] = r["id"] in favorite_ids
+        # Embedded here (rather than left to a per-card GET .../steps call)
+        # so a page of results costs one HTTP round trip, not one plus N —
+        # the frontend used to fan out a parallel steps fetch per card,
+        # which meant a single search burst Cloud Run's containerConcurrency
+        # (owner audit, 2026-09). Parse cost is unchanged, just no longer
+        # paid once per network round trip.
+        try:
+            s["steps"] = [
+                {
+                    "kind": st.kind, "duration_sec": st.duration_sec,
+                    "power_low": st.power_low, "power_high": st.power_high,
+                    "cadence_low": st.cadence_low, "cadence_high": st.cadence_high,
+                }
+                for st in parse_zwo(r["filepath"]).steps
+            ]
+        except ZwoParseError:
+            s["steps"] = []
         results.append(s)
     return {"matched": len(rows), "results": results, "offset": offset, "limit": limit}
 
