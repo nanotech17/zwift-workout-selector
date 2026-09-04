@@ -1038,14 +1038,10 @@ document.getElementById("clear-form").addEventListener("click", () => {
   const sortDirBtn = document.getElementById("sort-dir");
   sortDirBtn.dataset.dir = "asc";
   sortDirBtn.textContent = t("results.asc");
-  lastResults = [];
-  lastStepsById = {};
-  lastMatchedCount = null;
-  currentOffset = 0;
-  expandedId = null;
-  document.getElementById("results").innerHTML = "";
-  updateResultCountLabel();
-  renderPagination();
+  // A cleared form is the same no-filter state as the initial page load, so
+  // re-run the search the same way instead of just blanking the results
+  // (owner decision 2026-09: both should behave as "browse all").
+  fetchPage(0);
 });
 
 // --- settings panel (owner request: configure/operate entirely from the
