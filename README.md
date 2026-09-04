@@ -6,6 +6,14 @@ structure) for each one, lets you search and pick workouts by those metrics,
 and schedules the chosen ones onto your Zwift calendar via the Intervals.icu
 API.
 
+> 🔗 **Live demo**: A read-only demo (sample data, browse/search only —
+> settings and delivery scheduling are disabled) is available at
+> [zws-demo](https://zws-demo-48355139701.asia-northeast1.run.app).
+>
+> 🔗 **ライブデモ**: サンプルデータによる読み取り専用のデモ版を
+> [こちら](https://zws-demo-48355139701.asia-northeast1.run.app) で公開しています
+> （検索・閲覧のみ可能で、設定変更や配信登録はできません）。
+
 > ⚠️ **Security note**: ZWS is designed for personal use on a trusted LAN
 > and has no authentication built in — every API endpoint (search,
 > settings, delivery scheduling, etc.) is reachable by anyone who can
