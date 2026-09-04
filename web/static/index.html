@@ -4,6 +4,7 @@
 <meta charset="utf-8">
 <title>Zwift Workout Selector</title>
 <link rel="stylesheet" href="style.css">
+<script>window.WS_DEFAULT_LANG = "ja";</script>
 </head>
 <body>
 <header>
@@ -23,8 +24,9 @@
 <main>
   <section id="settings-panel" hidden>
     <h2 data-i18n="settings.title">設定</h2>
+    <p id="settings-demo-banner" class="settings-status err" hidden data-i18n="settings.demo_banner">デモ版のため、設定は変更できません。</p>
 
-    <fieldset>
+    <fieldset id="settings-datasource-fieldset" class="demo-disable">
       <legend data-i18n="settings.data_source">データソース</legend>
       <div class="row">
         <label style="flex:1 1 320px"><span data-i18n="settings.zwo_dir_label">.zwoディレクトリ</span>
@@ -47,7 +49,7 @@
       </details>
     </fieldset>
 
-    <fieldset>
+    <fieldset id="settings-intervals-fieldset">
       <legend data-i18n="settings.intervals_integration">Intervals.icu連携</legend>
       <div class="row">
         <label>Athlete ID <input type="text" id="setting-athlete-id" class="num-sm" style="width:8em"></label>
@@ -65,7 +67,7 @@
       </div>
     </fieldset>
 
-    <fieldset>
+    <fieldset class="demo-disable">
       <legend data-i18n="settings.zone_classification">ゾーン分類（境界値・配色）</legend>
       <p class="settings-hint" data-i18n="settings.reflect_hint">保存しただけでは既存データには反映されません。保存後は「再スキャン(全件)」を実行してください。</p>
       <div id="zone-config-rows"></div>
@@ -76,7 +78,7 @@
       <p id="zone-config-status" class="settings-status"></p>
     </fieldset>
 
-    <fieldset>
+    <fieldset class="demo-disable">
       <legend data-i18n="settings.tuning_title">分類ロジックの詳細設定</legend>
       <p class="settings-hint" data-i18n="settings.reflect_hint">保存しただけでは既存データには反映されません。保存後は「再スキャン(全件)」を実行してください。</p>
 

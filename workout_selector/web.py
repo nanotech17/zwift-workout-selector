@@ -7,6 +7,10 @@ Config via env vars (all optional, defaults match the rest of the app):
     WS_DB_PATH        default ./data/catalog.db
     WS_INTERVALS_KEY  default ./intervals_key
     WS_ATHLETE_ID     default YOUR_ATHLETE_ID
+    WS_DEMO_MODE      default unset (off). Set to "1" for a read-only demo
+                      deployment (e.g. Cloud Run): all mutating endpoints
+                      return 403, and GET /api/settings reports demo_mode
+                      so the frontend can hide/disable the corresponding UI.
 """
 import json
 import os
@@ -33,9 +37,19 @@ KEY_FILE = os.environ.get("WS_INTERVALS_KEY", "./intervals_key")
 # Seed default for the first run only — once set, the settings screen's
 # value (in the settings table) takes over; see _athlete_id.
 ATHLETE_ID_ENV_DEFAULT = os.environ.get("WS_ATHLETE_ID", "YOUR_ATHLETE_ID")
+DEMO_MODE = os.environ.get("WS_DEMO_MODE") == "1"
 STATIC_DIR = Path(__file__).resolve().parent.parent / "web" / "static"
 
 app = FastAPI(title="Zwift Workout Selector")
+
+
+def _demo_guard() -> None:
+    """Blocks every mutating endpoint in a read-only demo deployment. The
+    frontend also hides/disables the corresponding controls, but the API
+    itself must refuse independently — a demo container is reachable
+    directly, without going through the UI."""
+    if DEMO_MODE:
+        raise HTTPException(403, "demo mode: this action is disabled")
 
 
 def _conn() -> sqlite3.Connection:
@@ -190,6 +204,7 @@ def api_detail(workout_id: int):
 
 @app.put("/api/workouts/{workout_id}/favorite")
 def api_favorite_set(workout_id: int):
+    _demo_guard()
     conn = _conn()
     if conn.execute("SELECT 1 FROM workouts WHERE id = ?", (workout_id,)).fetchone() is None:
         conn.close()
@@ -205,6 +220,7 @@ def api_favorite_set(workout_id: int):
 
 @app.delete("/api/workouts/{workout_id}/favorite")
 def api_favorite_unset(workout_id: int):
+    _demo_guard()
     conn = _conn()
     conn.execute("DELETE FROM favorites WHERE workout_id = ?", (workout_id,))
     conn.commit()
@@ -239,6 +255,7 @@ def api_steps(workout_id: int):
 
 @app.get("/api/workouts/{workout_id}/download")
 def api_download(workout_id: int):
+    _demo_guard()
     conn = _conn()
     row = conn.execute("SELECT filepath, filename FROM workouts WHERE id = ?", (workout_id,)).fetchone()
     conn.close()
@@ -270,6 +287,7 @@ def api_deliveries():
 
 @app.post("/api/deliveries/sync")
 def api_deliveries_sync():
+    _demo_guard()
     if not _key_is_set():
         raise HTTPException(400, "intervals.icu API key is not set")
     conn = _conn()
@@ -284,6 +302,7 @@ def api_deliveries_sync():
 
 @app.post("/api/deliveries")
 def api_deliver(req: DeliverRequest):
+    _demo_guard()
     conn = _conn()
     try:
         result = schedule(conn, req.workout_id, req.date, _read_key(), _athlete_id(conn),
@@ -297,6 +316,7 @@ def api_deliver(req: DeliverRequest):
 
 @app.delete("/api/deliveries/{delivery_id}")
 def api_cancel(delivery_id: int):
+    _demo_guard()
     conn = _conn()
     try:
         cancel_delivery(conn, delivery_id, _read_key(), _athlete_id(conn))
@@ -326,6 +346,7 @@ def _settings_payload(conn: sqlite3.Connection) -> dict:
         "intervals_key_set": _key_is_set(),
         "last_scan": settingsmod.get_setting_json(conn, settingsmod.LAST_SCAN_RESULT),
         "hide_sample_tag": settingsmod.get_hide_sample_tag(conn),
+        "demo_mode": DEMO_MODE,
     }
 
 
@@ -339,6 +360,7 @@ def api_get_settings():
 
 @app.post("/api/settings")
 def api_update_settings(req: SettingsUpdate):
+    _demo_guard()
     conn = _conn()
     if req.zwo_dir is not None:
         if not os.path.isdir(req.zwo_dir):
@@ -364,6 +386,7 @@ class ApiKeyUpdate(BaseModel):
 
 @app.post("/api/settings/intervals-key")
 def api_update_key(req: ApiKeyUpdate):
+    _demo_guard()
     v = req.api_key.strip()
     if not v:
         raise HTTPException(400, "api key must not be empty")
@@ -373,6 +396,7 @@ def api_update_key(req: ApiKeyUpdate):
 
 @app.post("/api/settings/test-connection")
 def api_test_connection():
+    _demo_guard()
     if not _key_is_set():
         raise HTTPException(400, "intervals.icu API key is not set")
     conn = _conn()
@@ -387,6 +411,7 @@ def api_test_connection():
 
 @app.post("/api/ingest")
 def api_ingest(force: bool = False):
+    _demo_guard()
     conn = _conn()
     zwo_dir = settingsmod.get_setting(conn, settingsmod.ZWO_DIR)
     conn.close()
@@ -444,6 +469,7 @@ def api_get_config():
 
 @app.post("/api/config")
 def api_update_config(req: ConfigUpdate):
+    _demo_guard()
     conn = _conn()
     try:
         if req.zone_bounds is not None:

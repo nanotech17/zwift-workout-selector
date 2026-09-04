@@ -1,0 +1,13 @@
+.git/
+.gitignore
+.venv/
+__pycache__/
+*.pyc
+data/
+intervals_key
+
+# local-only reference docs, never bundled into any image
+CLAUDE.md
+webserver.txt
+workout-selector.md
+demo-cloudrun-investigation.md

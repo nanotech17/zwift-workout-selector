@@ -117,6 +117,9 @@ const I18N = {
     "card.favorite_on": "お気に入り解除",
     "card.favorite_off": "お気に入りに追加",
 
+    "demo.blocked": "デモ版のため実行できません。",
+    "settings.demo_banner": "デモ版のため、設定は変更できません。",
+
     "deliveries.title": "配信状況(Intervals.icu登録済み)",
     "deliveries.refresh": "更新",
     "deliveries.empty": "登録中のワークアウトはありません。",
@@ -260,6 +263,9 @@ const I18N = {
     "card.favorite_on": "Remove from favorites",
     "card.favorite_off": "Add to favorites",
 
+    "demo.blocked": "This action is disabled in the demo version.",
+    "settings.demo_banner": "Settings cannot be changed in the demo version.",
+
     "deliveries.title": "Delivery Status (registered on Intervals.icu)",
     "deliveries.refresh": "Refresh",
     "deliveries.empty": "No workouts currently registered.",
@@ -293,7 +299,12 @@ const I18N = {
   },
 };
 
-let LANG = localStorage.getItem("lang") === "en" ? "en" : "ja";
+const _storedLang = localStorage.getItem("lang");
+let LANG = _storedLang === "en" || _storedLang === "ja" ? _storedLang : (window.WS_DEFAULT_LANG === "en" ? "en" : "ja");
+// Set once from GET /api/settings before first render (see the init IIFE at
+// the bottom of this file) — a read-only demo deployment (Cloud Run) hides
+// or intercepts every write-capable control on top of the server's own 403s.
+let DEMO_MODE = false;
 
 function t(key, vars) {
   let s = (I18N[LANG] && I18N[LANG][key]) ?? I18N.ja[key] ?? key;
@@ -795,7 +806,7 @@ function detailBodyHtml(w, steps) {
   return `
     <div class="detail-title-row">
       <h3><button class="star-toggle" data-id="${w.id}" title="${t(w.is_favorite ? "card.favorite_on" : "card.favorite_off")}">${w.is_favorite ? "★" : "☆"}</button> ${escapeHtml(w.name)}</h3>
-      <a class="btn secondary btn-download" href="/api/workouts/${w.id}/download" download>⬇ .zwo</a>
+      ${DEMO_MODE ? "" : `<a class="btn secondary btn-download" href="/api/workouts/${w.id}/download" download>⬇ .zwo</a>`}
     </div>
     <p class="meta-line">${t("detail.primary_type")} ${w.primary_type} / ${t("detail.structure")} ${w.structure_type} / ${t("detail.tags")} ${w.tags.map(escapeHtml).join(", ")}</p>
     <div class="detail-columns">
@@ -855,6 +866,7 @@ async function toggleDetail(id) {
 // already-fetched result/detail objects in place rather than re-querying,
 // same as the rest of this file's local-state-then-rerender pattern.
 async function toggleFavorite(id) {
+  if (DEMO_MODE) { alert(t("demo.blocked")); return; }
   const w = lastResults.find(r => r.id === id);
   const wasFavorite = w ? w.is_favorite : detailCache[id]?.w?.is_favorite;
   const res = await fetch(`/api/workouts/${id}/favorite`, {method: wasFavorite ? "DELETE" : "PUT"});
@@ -874,6 +886,7 @@ function todayLocalIso() {
 let deliverTargetId = null;
 
 function promptDeliver(id, name) {
+  if (DEMO_MODE) { alert(t("demo.blocked")); return; }
   deliverTargetId = id;
   document.getElementById("deliver-workout-name").textContent = name;
   document.getElementById("deliver-date").value = todayLocalIso();
@@ -973,6 +986,7 @@ async function loadTagChips() {
 
 document.getElementById("search-form").addEventListener("submit", runSearch);
 document.getElementById("deliveries-refresh").addEventListener("click", async (ev) => {
+  if (DEMO_MODE) { alert(t("demo.blocked")); return; }
   // Reconciles against intervals.icu's actual calendar first — a delivery
   // cancelled directly there (or in Zwift) otherwise leaves a stale
   // "active" row here forever, since intervals events carry no client UID
@@ -1286,9 +1300,25 @@ async function runIngest(force) {
 document.getElementById("rescan-diff").addEventListener("click", () => runIngest(false));
 document.getElementById("rescan-force").addEventListener("click", () => runIngest(true));
 
-applyStaticI18n();
-loadDeliveries();
-loadTagChips();
-loadConfig();
-loadIngestErrors(); // header badge only — the settings panel's own open also re-fetches for freshness
-fetchPage(0); // no-filter search on load = a de facto "browse all" default view (owner audit, 2026-09)
+// Read-only demo deployment (WS_DEMO_MODE=1, see workout_selector/web.py):
+// hides/disables every write-capable control up front, before the first
+// results render, so nothing flashes as "live" and then gets locked down.
+// The server enforces this independently (403s) — this is purely UI.
+function applyDemoModeUI() {
+  document.getElementById("settings-intervals-fieldset").hidden = true;
+  document.querySelectorAll("#settings-panel fieldset.demo-disable").forEach(fs => { fs.disabled = true; });
+  document.getElementById("settings-demo-banner").hidden = false;
+}
+
+(async function initApp() {
+  const s = await fetch("/api/settings").then(r => r.json()).catch(() => null);
+  DEMO_MODE = !!(s && s.demo_mode);
+  if (DEMO_MODE) applyDemoModeUI();
+
+  applyStaticI18n();
+  loadDeliveries();
+  loadTagChips();
+  loadConfig();
+  loadIngestErrors(); // header badge only — the settings panel's own open also re-fetches for freshness
+  fetchPage(0); // no-filter search on load = a de facto "browse all" default view (owner audit, 2026-09)
+})();
