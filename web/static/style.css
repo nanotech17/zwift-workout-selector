@@ -137,7 +137,7 @@ button:disabled { opacity: 0.55; cursor: default; transform: none; }
    here and stale pagination controls stay clickable (found 2026-09). */
 .pagination-row[hidden] { display: none; }
 .pagination-row { justify-content: center; margin: 0.9rem 0 0.2rem; }
-.pagination-row #page-indicator { font-size: 0.9rem; color: var(--text-muted); min-width: 7em; text-align: center; }
+.pagination-row span[id^="page-indicator"] { font-size: 0.9rem; color: var(--text-muted); min-width: 7em; text-align: center; }
 
 /* --- inline card detail (opens directly under its card, one at a time —
    replaces the old page-bottom detail panel that lost the user's scroll

@@ -678,25 +678,32 @@ function updateResultCountLabel() {
   el.textContent = t("results.count", {start, end, matched: lastMatchedCount});
 }
 
+// 改ページ行は候補リストの上下2箇所にあり (owner request 2026-09: 下部だけだと
+// 「次へ」を押すたびページ最下部に取り残され、上へ戻る手間が生じていた) —
+// 見た目・状態は常に両方まとめて更新する。
+const PAGINATION_POSITIONS = ["top", "bottom"];
+
 function renderPagination() {
-  const row = document.getElementById("pagination-row");
-  if (lastMatchedCount == null || lastMatchedCount <= currentLimit) {
-    row.hidden = true;
-    // Belt-and-braces: don't leave a previous (larger) search's page
-    // number/enabled-next lingering if something ever shows this row
-    // while hidden should apply (see the CSS comment on .pagination-row).
-    document.getElementById("page-indicator").textContent = "";
-    document.getElementById("page-prev").disabled = true;
-    document.getElementById("page-next").disabled = true;
-    return;
+  for (const pos of PAGINATION_POSITIONS) {
+    const row = document.getElementById(`pagination-row-${pos}`);
+    if (lastMatchedCount == null || lastMatchedCount <= currentLimit) {
+      row.hidden = true;
+      // Belt-and-braces: don't leave a previous (larger) search's page
+      // number/enabled-next lingering if something ever shows this row
+      // while hidden should apply (see the CSS comment on .pagination-row).
+      document.getElementById(`page-indicator-${pos}`).textContent = "";
+      document.getElementById(`page-prev-${pos}`).disabled = true;
+      document.getElementById(`page-next-${pos}`).disabled = true;
+      continue;
+    }
+    row.hidden = false;
+    const totalPages = Math.max(1, Math.ceil(lastMatchedCount / currentLimit));
+    const currentPage = Math.floor(currentOffset / currentLimit) + 1;
+    document.getElementById(`page-indicator-${pos}`).textContent =
+      t("results.page_indicator", {page: currentPage, total: totalPages});
+    document.getElementById(`page-prev-${pos}`).disabled = currentOffset <= 0;
+    document.getElementById(`page-next-${pos}`).disabled = currentOffset + currentLimit >= lastMatchedCount;
   }
-  row.hidden = false;
-  const totalPages = Math.max(1, Math.ceil(lastMatchedCount / currentLimit));
-  const currentPage = Math.floor(currentOffset / currentLimit) + 1;
-  document.getElementById("page-indicator").textContent =
-    t("results.page_indicator", {page: currentPage, total: totalPages});
-  document.getElementById("page-prev").disabled = currentOffset <= 0;
-  document.getElementById("page-next").disabled = currentOffset + currentLimit >= lastMatchedCount;
 }
 
 // Builds the /api/workouts query for a given page offset: the search-form
@@ -1013,12 +1020,14 @@ document.getElementById("sort-dir").addEventListener("click", (ev) => {
   if (lastMatchedCount == null) return;
   fetchPage(0);
 });
-document.getElementById("page-prev").addEventListener("click", () => {
-  fetchPage(Math.max(0, currentOffset - currentLimit));
-});
-document.getElementById("page-next").addEventListener("click", () => {
-  fetchPage(currentOffset + currentLimit);
-});
+for (const pos of PAGINATION_POSITIONS) {
+  document.getElementById(`page-prev-${pos}`).addEventListener("click", () => {
+    fetchPage(Math.max(0, currentOffset - currentLimit));
+  });
+  document.getElementById(`page-next-${pos}`).addEventListener("click", () => {
+    fetchPage(currentOffset + currentLimit);
+  });
+}
 document.getElementById("tags-input").addEventListener("input", syncTagChipHighlight);
 document.getElementById("tags-mode").addEventListener("click", (ev) => {
   const btn = ev.currentTarget;
