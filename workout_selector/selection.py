@@ -232,21 +232,26 @@ def resolve_targets(duration_min=None, duration_max=None, target_duration=None,
 
 
 def rank(rows: List[dict], target_duration_sec: Optional[float] = None,
-         target_tss: Optional[float] = None, limit: int = 10) -> List[dict]:
+         target_tss: Optional[float] = None, limit: int = 10,
+         direction: str = "asc") -> List[dict]:
     """Sorts by closeness to the given target(s) (relative distance, summed
-    when both are given); rows missing a needed value sort last."""
+    when both are given); rows missing a needed value sort last regardless
+    of direction, matching sort_field_rows()'s convention (a tuple key, not
+    a negated score, so a plain `-inf` doesn't put missing-value rows first
+    when direction="desc")."""
+    reverse = direction == "desc"
 
-    def score(r):
+    def sort_key(r):
         s = 0.0
         if target_duration_sec:
             s += abs(r["duration_sec"] - target_duration_sec) / target_duration_sec
         if target_tss:
             if r["tss"] is None:
-                return float("inf")
+                return (1, 0)
             s += abs(r["tss"] - target_tss) / target_tss
-        return s
+        return (0, -s if reverse else s)
 
-    return sorted(rows, key=score)[:limit]
+    return sorted(rows, key=sort_key)[:limit]
 
 
 # Maps the search UI's 並べ替え field values to the row dict keys `search()`

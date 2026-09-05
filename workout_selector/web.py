@@ -147,7 +147,7 @@ def api_search(
             duration_min=duration_min, duration_max=duration_max, target_duration=target_duration,
             tss_min=tss_min, tss_max=tss_max, target_tss=target_tss,
         )
-        ordered = rank(rows, td, tt, limit=len(rows))
+        ordered = rank(rows, td, tt, limit=len(rows), direction=sort_dir)
     top = ordered[offset: offset + limit]
 
     tag_map = {}
