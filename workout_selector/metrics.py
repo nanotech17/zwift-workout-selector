@@ -84,6 +84,12 @@ SWEETSPOT_HIGH_RATIO_MAX = 0.10
 HIGH_CADENCE_RPM = 100
 LOW_CADENCE_RPM = 70
 
+# Z1-dominant is only "recovery" up to this length; longer than that reads as
+# a deliberate long easy ride (endurance base), not a recovery spin, even
+# though the zone weighting alone can't tell the two apart (owner spec,
+# 2026-09).
+RECOVERY_MAX_DURATION_SEC = 90 * 60
+
 # Some authors hand-roll an interval set as a plain alternating sequence of
 # <SteadyState> blocks instead of <IntervalsT> (num_intervals stays 0, every
 # step is kind="steady"). Raw-seconds zone tallying can't tell "on" from
@@ -409,6 +415,11 @@ def compute_metrics(doc: WorkoutDoc, zone_bounds=None, tuning=None) -> Metrics:
 
     m.duration_sec = int(sum(s.duration_sec for s in doc.steps))
     m.has_freeride = any(s.kind == "freeride" for s in doc.steps)
+    # "FTP test" as its own primary_type, overriding whatever the zone-based
+    # classification below would say (owner spec, 2026-09): title carries the
+    # word "ftp test" (case-insensitive substring) AND the file has a Free
+    # Ride section (the actual test effort — ERG unlocked, ramp-rate free).
+    is_ftp_test = m.has_freeride and "ftp test" in (doc.name or "").lower()
     m.has_maxeffort = any(s.kind == "maxeffort" for s in doc.steps)
     m.has_ramp = any(s.kind == "ramp" for s in doc.steps)
     m.has_warmup = any(s.kind == "warmup" for s in doc.steps)
@@ -486,7 +497,7 @@ def compute_metrics(doc: WorkoutDoc, zone_bounds=None, tuning=None) -> Metrics:
 
     if not profile:
         m.structure_type = "steady"
-        m.primary_type = "mixed"
+        m.primary_type = "ftp_test" if is_ftp_test else "mixed"
         return m
 
     m.avg_intensity = sum(profile) / len(profile)
@@ -548,7 +559,7 @@ def compute_metrics(doc: WorkoutDoc, zone_bounds=None, tuning=None) -> Metrics:
     primary_weight_total = sum(zones_for_primary.values()) or 1
     primary_zone_pcts = {z: w / primary_weight_total * 100 for z, w in zones_for_primary.items()}
 
-    m.primary_type = _classify_primary_type(m, primary_zone_pcts)
+    m.primary_type = "ftp_test" if is_ftp_test else _classify_primary_type(m, primary_zone_pcts)
     if m.sweet_spot_pct >= t["sweet_spot_tag_min_pct"]:
         m.sub_types.append("sweetspot_loose")
     # Independent of primary_type — coexists with tempo/threshold rather
@@ -597,4 +608,7 @@ def _classify_primary_type(m: Metrics, primary_zone_pcts: Dict[int, float]) -> s
     # No "sweetspot" here anymore — it's the independent `sweetspot` tag
     # (see compute_metrics), so it can coexist with tempo/threshold instead
     # of replacing them.
-    return zone_to_type.get(m.primary_zone, "mixed")
+    result = zone_to_type.get(m.primary_zone, "mixed")
+    if result == "recovery" and m.duration_sec > RECOVERY_MAX_DURATION_SEC:
+        return "endurance"
+    return result
