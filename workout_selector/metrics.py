@@ -416,10 +416,24 @@ def compute_metrics(doc: WorkoutDoc, zone_bounds=None, tuning=None) -> Metrics:
     m.duration_sec = int(sum(s.duration_sec for s in doc.steps))
     m.has_freeride = any(s.kind == "freeride" for s in doc.steps)
     # "FTP test" as its own primary_type, overriding whatever the zone-based
-    # classification below would say (owner spec, 2026-09): title carries the
-    # word "ftp test" (case-insensitive substring) AND the file has a Free
-    # Ride section (the actual test effort — ERG unlocked, ramp-rate free).
-    is_ftp_test = m.has_freeride and "ftp test" in (doc.name or "").lower()
+    # classification below would say (owner spec, 2026-09). Two independent
+    # signals, OR'd:
+    #   1. content-based: any step carries Zwift's own official FTP-test
+    #      marker (Step.is_ftp_test_marker — ramptest/ftptest attributes or
+    #      the GPE_SIMPLE_FTP_ESTIMATION gameplayevent, set in zwo_parser.py).
+    #      Catches renamed/relabeled files with no FTP wording at all (e.g.
+    #      "Flat Out Fast", "Test Day Ride") that the title check below
+    #      can't.
+    #   2. title-based fallback: title contains "ftp test" (case-insensitive)
+    #      AND the file has a Free Ride section. Catches a handful of
+    #      genuine FTP tests from an older Zwift training-plan export
+    #      (PRL100/PRL46 2018) that are otherwise identical in content and
+    #      coaching text to marker-bearing files but are missing the marker
+    #      attribute (owner survey, 2026-09).
+    is_ftp_test = (
+        any(s.is_ftp_test_marker for s in doc.steps)
+        or (m.has_freeride and "ftp test" in (doc.name or "").lower())
+    )
     m.has_maxeffort = any(s.kind == "maxeffort" for s in doc.steps)
     m.has_ramp = any(s.kind == "ramp" for s in doc.steps)
     m.has_warmup = any(s.kind == "warmup" for s in doc.steps)

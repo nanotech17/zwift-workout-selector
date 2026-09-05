@@ -80,6 +80,14 @@ class Step:
     # metrics.py's FreeRide bucket classifier to detect a "coached drill"
     # block vs. a quiet one — see workout_selector.md FreeRide §, 2026-09).
     textevent_offsets: List[float] = field(default_factory=list)
+    # Zwift's own "this step is part of an official FTP test" markers —
+    # SteadyState ramptest="1" (ramp-style test), FreeRide ftptest="1"
+    # (classic 20min-style test), or a FreeRide carrying a
+    # <gameplayevent type="GPE_SIMPLE_FTP_ESTIMATION"> child (the "Simple
+    # FTP Test" variant). Content-based, so it works regardless of title —
+    # e.g. "Flat Out Fast" and "Test Day Ride" carry no FTP-test wording at
+    # all (owner survey, 2026-09). Used by metrics.py's ftp_test primary_type.
+    is_ftp_test_marker: bool = False
 
 
 @dataclass
@@ -259,17 +267,29 @@ def parse_zwo(filepath: str) -> WorkoutDoc:
             cad_lo, cad_hi = _cadence(attrs)
             _add_step(Step(kind="steady", duration_sec=duration,
                             power_low=lo, power_high=hi, power_estimated=est,
-                            cadence_low=cad_lo, cadence_high=cad_hi))
+                            cadence_low=cad_lo, cadence_high=cad_hi,
+                            is_ftp_test_marker=attrs.get("ramptest") == "1"))
 
         elif canonical == "FreeRide":
             offsets = []
+            # Most ramp tests mark their SteadyState steps with ramptest="1"
+            # (handled above), but at least one real file (Zwift's onboarding
+            # ramp test) marks its FreeRide steps instead — check both
+            # attributes on FreeRide too (owner survey, 2026-09).
+            is_ftp_test_marker = attrs.get("ftptest") == "1" or attrs.get("ramptest") == "1"
             for child in el:
-                if child.tag.lower() != "textevent":
+                child_tag = child.tag.lower()
+                if child_tag == "gameplayevent":
+                    if child.attrib.get("type") == "GPE_SIMPLE_FTP_ESTIMATION":
+                        is_ftp_test_marker = True
+                    continue
+                if child_tag != "textevent":
                     continue
                 off = _f(child.attrib, "timeoffset")
                 offsets.append(off if off is not None else 0.0)
             _add_step(Step(kind="freeride", duration_sec=duration,
-                            textevent_offsets=offsets))
+                            textevent_offsets=offsets,
+                            is_ftp_test_marker=is_ftp_test_marker))
 
         elif canonical == "MaxEffort":
             _add_step(Step(kind="maxeffort", duration_sec=duration))
