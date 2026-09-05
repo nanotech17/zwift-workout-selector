@@ -9,3 +9,5 @@ CLAUDE.md
 webserver.txt
 workout-selector.md
 demo-cloudrun-investigation.md
+zws-demo-deploy.sh
+zws-demo-cloudrun-deploy.sh
